@@ -1,0 +1,13 @@
+{
+  "name": "tvremix-marketplace",
+  "owner": {
+    "name": "tvremix"
+  },
+  "plugins": [
+    {
+      "name": "tvremix",
+      "source": "./",
+      "description": "TradingView-powered market analysis for Claude Code"
+    }
+  ]
+}

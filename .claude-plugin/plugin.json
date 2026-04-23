@@ -1,0 +1,9 @@
+{
+  "name": "tvremix",
+  "description": "TradingView-powered market analysis for Claude Code — SMC, swing, momentum, options chains, multi-timeframe confluence.",
+  "version": "0.1.0",
+  "author": {
+    "name": "tvremix"
+  },
+  "homepage": "https://tvremix.xyz/mcp"
+}
