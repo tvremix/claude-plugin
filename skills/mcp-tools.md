@@ -24,6 +24,7 @@ All tools are exposed as `mcp__tvremix__<name>`. Categories:
 |---|---|---|
 | `search_symbols` | `query` (str), `limit` (int=10) | Fuzzy-matched symbols with `EXCHANGE:SYMBOL`. Use this first when the user gives a ticker without an exchange. |
 | `get_quote` | `symbol` (str) | Snapshot: price, change, volume, O/H/L/C, market cap. |
+| `get_quotes_batch` | `symbols` (list[str], ≤50) | Snapshot quotes for many symbols in one call. Use instead of looping `get_quote`. Returns `data: {sym: {...}}` + `missing: [...]`. |
 | `get_symbol_data` | `symbol`, `columns` (list[str]) | Escape hatch for raw scanner columns. |
 
 ### Technicals & ratings
@@ -72,6 +73,25 @@ All tools are exposed as `mcp__tvremix__<name>`. Categories:
 | `compare_symbols_tool` | `symbols`, `metrics?` | Side-by-side price/fundamentals/technicals with rankings. |
 | `analyze_sector_tool` | `sector_name`, `metric`, `limit`, `market` | Scan + rank a sector/industry. |
 | `calculate_correlation_tool` | `symbols`, `period=30`, `interval=1D` | Pearson correlation matrix from log returns over real bars. |
+
+### Multi-symbol batch (prefer over loops)
+These tools collapse per-symbol fan-out into a single MCP call. **When the user asks for the same shape of analysis across N symbols, reach for the batch tool first** — looping the single-symbol equivalents is a known cost trap (see the 2026-04-26 high-cost cohort: 200+ tool-call requests on watchlist-style questions).
+
+| Tool | Args | Returns |
+|---|---|---|
+| `analyze_multi_timeframe_batch` | `symbols` (list, ≤100), `timeframes?` (default `["1D","240","1W"]`) | Per-(symbol, TF) ratings + numeric RSI/MACD/Stoch/CCI/ADX/EMAs/SMAs/Bollinger/ATR + consensus buckets (`bullish_all_tf`, `bearish_all_tf`, `mixed`). Includes a top-level `summary_markdown` — quote from it directly. |
+| `filter_by_indicator` | `symbols` (list), `indicator` (`ema9`/`ema10`/`ema20`/`ema50`/`ema200`/`sma50`/`sma100`/`sma200`/`vwap`/`bb_upper`/`bb_lower`/`high_52w`/`low_52w`), `comparator` (`above`/`below`/`within_pct`/`crossed_above`/`crossed_below`), `threshold?` (default `1.0`), `timeframes?` (default `["1D"]`) | `{matching, not_matching, missing}`; `matching` is sorted closest-to-threshold first. Use for "stocks within 1% of 200 EMA on D/W/M", "above 50-day", "breaking 52-week high". |
+| `compute_levels_batch` | `symbols` (list), `methods?` (subset of `["swing","smc"]`, default `["swing"]`), `timeframes?` (default `["1D"]`), `swing_lookback?` (default `10`) | Per-(symbol, TF): swing support/resistance/fib levels and (if SMC requested) order blocks / FVGs / liquidity. Includes `summary_markdown` for direct quoting. Replaces per-symbol `analyze_swing_tool` / `analyze_smc_tool` loops. |
+
+#### When to use which
+- *"How is RSI / MACD / multi-TF rating across these N symbols?"* → `analyze_multi_timeframe_batch`. Don't loop `analyze_multi_timeframe`.
+- *"Which symbols on my watchlist are within 1% of the 200 EMA on D/W/M?"* / *"Stocks above 50-day SMA"* → `filter_by_indicator`. Don't loop `get_technicals`.
+- *"Compute support/resistance / order blocks for these N tickers"* → `compute_levels_batch`. Don't loop `analyze_swing_tool` / `analyze_smc_tool`.
+- *"Just the prices for these tickers"* → `get_quotes_batch`. Don't loop `get_quote`.
+- *"Rank these N for tradable setups"* → `rank_symbol_setups` (already batch).
+
+#### Batch tool output: `summary_markdown` is the source of truth
+The three `*_batch` / `filter_*` tools emit a `summary_markdown` field with the full per-symbol render the LLM should quote from directly. **Don't try to extract values by walking nested `data.results.<sym>.<tf>.swing.support[i].price` — that's a hallucination trap (caught fabricating 25%-off support prices in QA on 2026-04-26).** If you see a literal `⚠️ TRUNCATED: showing X of Y per-symbol blocks` marker, the response is partial — surface that to the user, list which symbols are present, and offer to re-call with a smaller subset.
 
 ### Web research
 | Tool | Args | Returns |
